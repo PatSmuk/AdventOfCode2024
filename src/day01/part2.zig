@@ -1,22 +1,13 @@
 const std = @import("std");
 const util = @import("util");
 
-fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![]const u8 {
-    return allocator.dupe(u8, line);
-}
-
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const lines = try util.readInputFileLines([]const u8, allocator, "day01.txt", parseLine);
+    const lines = try util.readInputFileLines([2]u32, allocator, "day01.txt", parseLine);
     defer allocator.free(lines);
-    defer {
-        for (lines) |line| {
-            allocator.free(line);
-        }
-    }
 
     var leftNumbers = std.ArrayList(u32).init(allocator);
     defer leftNumbers.deinit();
@@ -25,14 +16,10 @@ pub fn main() !void {
     defer rightNumberCounts.deinit();
 
     for (lines) |line| {
-        var pieces = std.mem.tokenizeAny(u8, line, " \r");
-        const left = try std.fmt.parseInt(u32, pieces.next().?, 10);
-        const right = try std.fmt.parseInt(u32, pieces.next().?, 10);
+        try leftNumbers.append(line[0]);
 
-        try leftNumbers.append(left);
-
-        const count = rightNumberCounts.get(right) orelse 0;
-        try rightNumberCounts.put(right, count + 1);
+        const count = rightNumberCounts.get(line[1]) orelse 0;
+        try rightNumberCounts.put(line[1], count + 1);
     }
 
     var similarityScore: u32 = 0;
@@ -43,4 +30,12 @@ pub fn main() !void {
     }
 
     std.debug.print("{d}\n", .{similarityScore});
+}
+
+fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![2]u32 {
+    _ = allocator; // autofix
+    var pieces = std.mem.tokenizeAny(u8, line, " \r");
+    const left = try std.fmt.parseInt(u32, pieces.next().?, 10);
+    const right = try std.fmt.parseInt(u32, pieces.next().?, 10);
+    return [2]u32{ left, right };
 }

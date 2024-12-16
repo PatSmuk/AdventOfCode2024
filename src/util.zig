@@ -24,16 +24,14 @@ pub fn readInputFileLines(
     const file_contents = try file.readToEndAlloc(allocator, 1024 * 1024 * 16);
     defer allocator.free(file_contents);
 
-    var lines_iterator = std.mem.splitScalar(u8, file_contents, '\n');
+    var lines_iterator = std.mem.tokenizeAny(u8, file_contents, "\n\r");
 
     // Collect the parsed lines in an ArrayList
     var parsed_lines = std.ArrayList(ParserResult).init(allocator);
     defer parsed_lines.deinit();
 
     while (lines_iterator.next()) |line| {
-        if (line.len > 0) {
-            try parsed_lines.append(try parseLine(allocator, line));
-        }
+        try parsed_lines.append(try parseLine(allocator, line));
     }
 
     // Return the results as a slice, dupe because parsed_lines will deinit

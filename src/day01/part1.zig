@@ -1,22 +1,13 @@
 const std = @import("std");
 const util = @import("util");
 
-fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![]const u8 {
-    return allocator.dupe(u8, line);
-}
-
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const lines = try util.readInputFileLines([]const u8, allocator, "day01.txt", parseLine);
+    const lines = try util.readInputFileLines([2]i32, allocator, "day01.txt", parseLine);
     defer allocator.free(lines);
-    defer {
-        for (lines) |line| {
-            allocator.free(line);
-        }
-    }
 
     var leftNumbersArray = std.ArrayList(i32).init(allocator);
     defer leftNumbersArray.deinit();
@@ -24,11 +15,8 @@ pub fn main() !void {
     defer rightNumbersArray.deinit();
 
     for (lines) |line| {
-        var pieces = std.mem.tokenizeAny(u8, line, " \r");
-        const left = try std.fmt.parseInt(i32, pieces.next().?, 10);
-        const right = try std.fmt.parseInt(i32, pieces.next().?, 10);
-        try leftNumbersArray.append(left);
-        try rightNumbersArray.append(right);
+        try leftNumbersArray.append(line[0]);
+        try rightNumbersArray.append(line[1]);
     }
 
     const leftNumbers = try leftNumbersArray.toOwnedSlice();
@@ -45,4 +33,12 @@ pub fn main() !void {
     }
 
     std.debug.print("{d}", .{totalDistance});
+}
+
+fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![2]i32 {
+    _ = allocator; // autofix
+    var pieces = std.mem.tokenizeAny(u8, line, " \r");
+    const left = try std.fmt.parseInt(i32, pieces.next().?, 10);
+    const right = try std.fmt.parseInt(i32, pieces.next().?, 10);
+    return [2]i32{ left, right };
 }
