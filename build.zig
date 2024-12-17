@@ -2,6 +2,7 @@ const std = @import("std");
 
 const days = [_][]const u8{
     "day01",
+    "day02",
 };
 
 const parts = [_][]const u8{ "part1", "part2" };
