@@ -3,6 +3,7 @@ const std = @import("std");
 const days = [_][]const u8{
     "day01",
     "day02",
+    "day03",
 };
 
 const parts = [_][]const u8{ "part1", "part2" };
@@ -19,11 +20,19 @@ pub fn build(b: *std.Build) !void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    // Add utilities module to the project
     const util_modules = b.addModule("util", .{
         .root_source_file = b.path("src/util.zig"),
+        .target = target,
+        .optimize = optimize,
     });
-    _ = util_modules; // autofix
 
+    const regex_lib = b.dependency("regex", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // For each day and each part, add an executable built from the corresponding source file
     inline for (days) |day| {
         inline for (parts) |part| {
             const exe = b.addExecutable(.{
@@ -33,7 +42,8 @@ pub fn build(b: *std.Build) !void {
                 .optimize = optimize,
             });
 
-            exe.root_module.addImport("util", b.modules.get("util").?);
+            exe.root_module.addImport("util", util_modules);
+            exe.root_module.addImport("regex", regex_lib.module("regex"));
 
             b.installArtifact(exe);
 

@@ -1,5 +1,12 @@
 const std = @import("std");
 
+/// Reads lines from `inputs/${inputFileName}`, then passes each line to `parseLine`
+/// and returns a slice of the return values.
+///
+/// The caller owns the slice of results and must free it.
+///
+/// The slices passed to `parseLine` *do not live beyond the end of `readInputFileLines`*
+/// and must be copied if you want to use them after `readInputFileLines` is finished.
 pub fn readInputFileLines(
     comptime ParserResult: type,
     allocator: std.mem.Allocator,
