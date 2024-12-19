@@ -37,7 +37,7 @@ pub fn main() !void {
 
 fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![2]i32 {
     _ = allocator; // autofix
-    var pieces = std.mem.tokenizeAny(u8, line, " \r");
+    var pieces = std.mem.tokenizeScalar(u8, line, ' ');
     const left = try std.fmt.parseInt(i32, pieces.next().?, 10);
     const right = try std.fmt.parseInt(i32, pieces.next().?, 10);
     return [2]i32{ left, right };
