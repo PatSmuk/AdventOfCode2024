@@ -5,6 +5,7 @@ const days = [_][]const u8{
     "day02",
     "day03",
     "day04",
+    "day05",
 };
 
 const parts = [_][]const u8{ "part1", "part2" };
