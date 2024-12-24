@@ -17,6 +17,8 @@ const Position = struct {
     col: usize,
 };
 
+var looping_position_count = std.atomic.Value(usize).init(0);
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -45,23 +47,32 @@ pub fn main() !void {
         }
     }
 
-    var looping_position_count: u32 = 0;
+    var thread_pool: std.Thread.Pool = undefined;
+    try thread_pool.init(.{ .allocator = allocator });
+    defer thread_pool.deinit();
+
+    var wait_group = std.Thread.WaitGroup{};
 
     for (0..max_row) |row| {
         for (0..max_col) |col| {
             const blocked_position = Position{ .row = row, .col = col };
-
-            if (willGuardLoopIfPositionBlocked(grid, blocked_position, start_position)) {
-                looping_position_count += 1;
-            }
+            thread_pool.spawnWg(&wait_group, worker, .{ grid, start_position, blocked_position });
         }
     }
 
-    std.debug.print("\n{d}", .{looping_position_count});
+    wait_group.wait();
+
+    std.debug.print("\n{d}", .{looping_position_count.load(.unordered)});
 }
 
 fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![]u8 {
     return allocator.dupe(u8, line);
+}
+
+fn worker(grid: [][]const u8, start_position: Position, blocked_position: Position) void {
+    if (willGuardLoopIfPositionBlocked(grid, blocked_position, start_position)) {
+        _ = looping_position_count.fetchAdd(1, .monotonic);
+    }
 }
 
 fn willGuardLoopIfPositionBlocked(grid: [][]const u8, blocked_position: Position, start_position: Position) bool {
