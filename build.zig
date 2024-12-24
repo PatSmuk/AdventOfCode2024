@@ -1,14 +1,6 @@
 const std = @import("std");
 
-const days = [_][]const u8{
-    "day01",
-    "day02",
-    "day03",
-    "day04",
-    "day05",
-};
-
-const parts = [_][]const u8{ "part1", "part2" };
+const max_day = 6;
 
 pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
@@ -35,11 +27,15 @@ pub fn build(b: *std.Build) !void {
     });
 
     // For each day and each part, add an executable built from the corresponding source file
-    inline for (days) |day| {
-        inline for (parts) |part| {
+    inline for (1..max_day + 1) |day| {
+        inline for (1..3) |part| {
+            const day_str = try std.fmt.allocPrint(b.allocator, "day{d:0>2}", .{day});
+            const part_str = try std.fmt.allocPrint(b.allocator, "part{d}", .{part});
+            const name = try std.fmt.allocPrint(b.allocator, "{s}_{s}", .{ day_str, part_str });
+
             const exe = b.addExecutable(.{
-                .name = day ++ "_" ++ part,
-                .root_source_file = b.path(try std.fmt.allocPrint(b.allocator, "src/{s}/{s}.zig", .{ day, part })),
+                .name = name,
+                .root_source_file = b.path(try std.fmt.allocPrint(b.allocator, "src/{s}/{s}.zig", .{ day_str, part_str })),
                 .target = target,
                 .optimize = optimize,
             });
@@ -52,7 +48,7 @@ pub fn build(b: *std.Build) !void {
             const run_cmd = b.addRunArtifact(exe);
             run_cmd.step.dependOn(b.getInstallStep());
 
-            const run_step = b.step(day ++ "_" ++ part, "Run " ++ day ++ "_" ++ part);
+            const run_step = b.step(name, try std.fmt.allocPrint(b.allocator, "Run solution for day {d} part {d}", .{ day, part }));
             run_step.dependOn(&run_cmd.step);
         }
     }
