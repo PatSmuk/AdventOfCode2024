@@ -35,12 +35,11 @@ pub fn readInputFileLines(
 
     // Collect the parsed lines in an ArrayList
     var parsed_lines = std.ArrayList(ParserResult).init(allocator);
-    defer parsed_lines.deinit();
 
     while (lines_iterator.next()) |line| {
         try parsed_lines.append(try parseLine(allocator, line));
     }
 
-    // Return the results as a slice, dupe because parsed_lines will deinit
-    return allocator.dupe(ParserResult, parsed_lines.items);
+    // Return the results as a slice
+    return parsed_lines.toOwnedSlice();
 }

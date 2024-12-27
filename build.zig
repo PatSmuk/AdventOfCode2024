@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const max_day = 8;
+const MAX_DAY = 9;
 
 pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     // For each day and each part, add an executable built from the corresponding source file
-    inline for (1..max_day + 1) |day| {
+    inline for (1..MAX_DAY + 1) |day| {
         inline for (1..3) |part| {
             const day_str = try std.fmt.allocPrint(b.allocator, "day{d:0>2}", .{day});
             const part_str = try std.fmt.allocPrint(b.allocator, "part{d}", .{part});
