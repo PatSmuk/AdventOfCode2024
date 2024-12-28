@@ -1,8 +1,6 @@
 const std = @import("std");
 const util = @import("util");
 
-const Direction = enum { up, right, down, left };
-
 const DirectionVector = [2]i8;
 
 const direction_vectors = [_]DirectionVector{
