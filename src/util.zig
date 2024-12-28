@@ -43,3 +43,21 @@ pub fn readInputFileLines(
     // Return the results as a slice
     return parsed_lines.toOwnedSlice();
 }
+
+/// Increment `key` within `map` by `n` if it exists, otherwise set it to `n`.
+pub fn mapInc(comptime K: type, comptime V: type, map: *std.AutoHashMap(K, V), key: K, n: V) !void {
+    if (!map.contains(key)) {
+        try map.put(key, n);
+    } else {
+        const existing = map.get(key).?;
+        map.putAssumeCapacity(key, existing + n);
+    }
+}
+
+/// Print all the entries in `map` out to stderr.
+pub fn printMap(comptime K: type, comptime V: type, map: std.AutoHashMap(K, V)) void {
+    var iter = map.iterator();
+    while (iter.next()) |entry| {
+        std.debug.print("- {any}: {any}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
+    }
+}
