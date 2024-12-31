@@ -18,7 +18,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var input_regex = try Regex.compile(allocator, "p=(-?\\d+),(-?\\d+) v=(-?\\d+),(-?\\d+)");
+    var input_regex = try Regex.compile(allocator, "p=(\\d+),(\\d+) v=(-?\\d+),(-?\\d+)");
     defer input_regex.deinit();
 
     const lines = try util.readInputFileLines([]u8, allocator, "day14.txt", parseLine);
@@ -52,8 +52,6 @@ pub fn main() !void {
         });
     }
 
-    drawGrid(robots.items);
-
     for (0..SECONDS_TO_SIMULATE) |_| {
         for (robots.items) |*robot| {
             var x = @as(i16, @intCast(robot.px)) + robot.vx;
@@ -68,8 +66,6 @@ pub fn main() !void {
             robot.py = @as(u8, @intCast(y));
         }
     }
-
-    drawGrid(robots.items);
 
     const safety_factor = blk: {
         var top_left: u16 = 0;
@@ -97,24 +93,4 @@ pub fn main() !void {
 
 fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![]u8 {
     return allocator.dupe(u8, line);
-}
-
-fn drawGrid(robots: []const Robot) void {
-    for (0..MAX_Y) |y| {
-        for (0..MAX_X) |x| {
-            var count: u8 = 0;
-            for (robots) |robot| {
-                if (robot.px == x and robot.py == y) {
-                    count += 1;
-                }
-            }
-            if (count > 0) {
-                std.debug.print("{d}", .{count});
-            } else {
-                std.debug.print(".", .{});
-            }
-        }
-        std.debug.print("\n", .{});
-    }
-    std.debug.print("\n", .{});
 }

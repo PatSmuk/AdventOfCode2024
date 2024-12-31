@@ -19,9 +19,9 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     var stdout_writer = std.io.bufferedWriter(std.io.getStdOut().writer());
-    var seconds_buf = [_]u8{3 + 1 + 7 + 1 + 1} ** 10; // XXX seconds
+    var seconds_buf = [_]u8{3 + 1 + 7 + 1 + 1} ** 10; // XXX seconds\n\0
 
-    var input_regex = try Regex.compile(allocator, "p=(-?\\d+),(-?\\d+) v=(-?\\d+),(-?\\d+)");
+    var input_regex = try Regex.compile(allocator, "p=(\\d+),(\\d+) v=(-?\\d+),(-?\\d+)");
     defer input_regex.deinit();
 
     const lines = try util.readInputFileLines([]u8, allocator, "day14.txt", parseLine);
@@ -56,10 +56,6 @@ pub fn main() !void {
     }
 
     for (0..SECONDS_TO_SIMULATE) |seconds| {
-        if (seconds % 1000 == 0) {
-            std.debug.print("{d}\n", .{seconds});
-        }
-
         for (robots.items) |*robot| {
             var x = @as(i16, @intCast(robot.px)) + robot.vx;
             if (x < 0) x += MAX_X;
@@ -77,6 +73,7 @@ pub fn main() !void {
             const seconds_str = try std.fmt.bufPrint(&seconds_buf, "{d}\n", .{seconds + 1});
             _ = try stdout_writer.write(seconds_str);
             try drawGrid(robots.items, &stdout_writer);
+            break;
         }
     }
 }
@@ -110,14 +107,16 @@ fn drawGrid(robots: []const Robot, writer: anytype) !void {
 }
 
 fn detectTree(robots: []const Robot) bool {
+    var counts = [_]u8{0} ** (MAX_X * MAX_Y);
+    for (robots) |robot| {
+        counts[robot.py * MAX_X + robot.px] += 1;
+    }
+
     for (0..MAX_X) |x| {
         var consecutive_count: u8 = 0;
         for (0..MAX_Y) |y| {
-            for (robots) |robot| {
-                if (robot.px == x and robot.py == y) {
-                    consecutive_count += 1;
-                    break;
-                }
+            if (counts[y * MAX_X + x] > 0) {
+                consecutive_count += 1;
             } else {
                 consecutive_count = 0;
             }
@@ -130,11 +129,8 @@ fn detectTree(robots: []const Robot) bool {
     for (0..MAX_Y) |y| {
         var consecutive_count: u8 = 0;
         for (0..MAX_X) |x| {
-            for (robots) |robot| {
-                if (robot.px == x and robot.py == y) {
-                    consecutive_count += 1;
-                    break;
-                }
+            if (counts[y * MAX_X + x] > 0) {
+                consecutive_count += 1;
             } else {
                 consecutive_count = 0;
             }
