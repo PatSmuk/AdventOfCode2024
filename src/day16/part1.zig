@@ -42,26 +42,26 @@ pub fn main() !void {
         }
     }
 
-    var start_x: u15 = undefined;
-    var start_y: u15 = undefined;
-    var end_x: u15 = undefined;
-    var end_y: u15 = undefined;
+    var start_x: u16 = undefined;
+    var start_y: u16 = undefined;
+    var end_x: u16 = undefined;
+    var end_y: u16 = undefined;
 
     for (grid, 0..) |row, y| {
         for (row, 0..) |char, x| {
             if (char == 'S') {
-                start_x = @as(u15, @intCast(x));
-                start_y = @as(u15, @intCast(y));
+                start_x = @as(u16, @intCast(x));
+                start_y = @as(u16, @intCast(y));
             }
             if (char == 'E') {
-                end_x = @as(u15, @intCast(x));
-                end_y = @as(u15, @intCast(y));
+                end_x = @as(u16, @intCast(x));
+                end_y = @as(u16, @intCast(y));
             }
         }
     }
 
     const search_config = SearchConfig.aStarConfig(grid, start_x, start_y, end_x, end_y);
-    const paths = try util.aStarSearch(u32, SearchConfig.Context, u32, allocator, search_config);
+    const paths = try util.aStarSearch(SearchConfig.Node, SearchConfig.Context, SearchConfig.Score, allocator, search_config);
     defer allocator.free(paths);
     defer {
         for (paths) |path| {
@@ -79,33 +79,15 @@ pub fn main() !void {
     for (0..path.len - 1) |i| {
         const start = path[i];
         const end = path[i + 1];
-
-        var x: u15 = undefined;
-        var y: u15 = undefined;
-        var start_facing: Direction = undefined;
-        SearchConfig.fromNode(start, &x, &y, &start_facing);
-
-        var end_facing: Direction = undefined;
-        SearchConfig.fromNode(end, &x, &y, &end_facing);
-
-        if (start_facing != end_facing) {
-            total_cost += 1000;
-        } else {
-            total_cost += 1;
-        }
+        total_cost += if (start.facing != end.facing) 1000 else 1;
     }
     std.debug.print("{d}\n\n", .{total_cost});
 
     for (grid, 0..) |row, y| {
         for (row, 0..) |char, x| {
             for (path) |node| {
-                var path_x: u15 = undefined;
-                var path_y: u15 = undefined;
-                var facing: Direction = undefined;
-                SearchConfig.fromNode(node, &path_x, &path_y, &facing);
-
-                if (path_x == x and path_y == y) {
-                    std.debug.print("{c}", .{DIRECTION_CHAR.getAssertContains(facing)});
+                if (node.x == x and node.y == y) {
+                    std.debug.print("{c}", .{DIRECTION_CHAR.getAssertContains(node.facing)});
                     break;
                 }
             } else {
@@ -121,79 +103,55 @@ fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![]u8 {
 }
 
 const SearchConfig = struct {
-    const Node = u32;
-    const Score = u32;
+    const Node = struct {
+        x: u16,
+        y: u16,
+        facing: Direction,
+    };
     const Context = struct {
         grid: [][]u8,
-        end_x: u15,
-        end_y: u15,
+        end_x: u16,
+        end_y: u16,
     };
-
-    fn toNode(x: u15, y: u15, facing: Direction) Node {
-        return (@as(u32, x) << 17) | (@as(u32, y) << 2) | @intFromEnum(facing);
-    }
-
-    fn fromNode(key: Node, x: *u15, y: *u15, facing: *Direction) void {
-        x.* = @as(u15, @intCast(key >> 17));
-        y.* = @as(u15, @intCast(key >> 2 & 0x7fff));
-        facing.* = @enumFromInt(key & 0b11);
-    }
+    const Score = u32;
 
     fn getDistance(context: *const Context, key: Node) Score {
-        var x: u15 = undefined;
-        var y: u15 = undefined;
-        var facing: Direction = undefined;
-        fromNode(key, &x, &y, &facing);
-
-        const x_dist = @as(i16, context.end_x) - @as(i16, x);
-        const y_dist = @as(i16, context.end_y) - @as(i16, y);
-        return @as(Node, @intCast(@abs(x_dist) + @abs(y_dist)));
+        const x_dist = @as(i17, context.end_x) - @as(i17, key.x);
+        const y_dist = @as(i17, context.end_y) - @as(i17, key.y);
+        return @as(Score, @intCast(@abs(x_dist) + @abs(y_dist)));
     }
 
     fn getWeight(_: *const Context, from: Node, to: Node) Score {
-        var from_x: u15 = undefined;
-        var from_y: u15 = undefined;
-        var from_facing: Direction = undefined;
-        fromNode(from, &from_x, &from_y, &from_facing);
-
-        var to_x: u15 = undefined;
-        var to_y: u15 = undefined;
-        var to_facing: Direction = undefined;
-        fromNode(to, &to_x, &to_y, &to_facing);
-
-        if (from_facing != to_facing) {
-            std.debug.assert(from_x == to_x);
-            std.debug.assert(from_y == to_y);
+        if (from.facing != to.facing) {
+            std.debug.assert(from.x == to.x);
+            std.debug.assert(from.y == to.y);
             return 1000;
         }
 
-        std.debug.assert(from_facing == to_facing);
+        std.debug.assert(from.facing == to.facing);
         return 1;
     }
 
+    const max_neighbours = 3;
+
     fn getNeighbours(context: *const Context, key: Node, results: []?Node) void {
-        var x: u15 = undefined;
-        var y: u15 = undefined;
-        var facing: Direction = undefined;
-        fromNode(key, &x, &y, &facing);
+        const turns = TURNS.getAssertContains(key.facing);
+        results[0] = .{ .x = key.x, .y = key.y, .facing = turns[0] };
+        results[1] = .{ .x = key.x, .y = key.y, .facing = turns[1] };
 
-        const turns = TURNS.getAssertContains(facing);
-        results[0] = toNode(x, y, turns[0]);
-        results[1] = toNode(x, y, turns[1]);
-
-        const move = MOVEMENT.getAssertContains(facing);
-        const new_x = @as(u15, @intCast(@as(i16, x) + move[0]));
-        const new_y = @as(u15, @intCast(@as(i16, y) + move[1]));
+        const move = MOVEMENT.getAssertContains(key.facing);
+        const new_x = @as(u16, @intCast(@as(i17, key.x) + move[0]));
+        const new_y = @as(u16, @intCast(@as(i17, key.y) + move[1]));
 
         if (context.grid[new_y][new_x] != '#') {
-            results[2] = toNode(new_x, new_y, facing);
+            results[2] = .{ .x = new_x, .y = new_y, .facing = key.facing };
         }
     }
 
-    fn aStarConfig(grid: [][]u8, start_x: u15, start_y: u15, end_x: u15, end_y: u15) util.AStarConfig(Node, Context, Score) {
+    fn aStarConfig(grid: [][]u8, start_x: u16, start_y: u16, end_x: u16, end_y: u16) util.AStarConfig(Node, Context, Score) {
         return .{
-            .start = toNode(start_x, start_y, .east),
-            .max_neighbours = 3,
+            .start = .{ .x = start_x, .y = start_y, .facing = .east },
+            .max_neighbours = max_neighbours,
             .context = Context{ .grid = grid, .end_x = end_x, .end_y = end_y },
             .get_distance = getDistance,
             .get_weight = getWeight,

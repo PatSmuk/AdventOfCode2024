@@ -179,7 +179,7 @@ pub fn aStarSearch(
                     errdefer new_path.deinit();
                     try new_path.append(next_node);
 
-                    if (next_node == start) {
+                    if (std.meta.eql(next_node, start)) {
                         const complete_path = try new_path.toOwnedSlice();
                         errdefer allocator.free(complete_path);
                         std.mem.reverse(Node, complete_path);
@@ -225,7 +225,7 @@ pub fn aStarSearch(
 
                 // Add the neighbour to the open set if it isn't already
                 for (open_set.items) |node| {
-                    if (node == neighbour) {
+                    if (std.meta.eql(node, neighbour)) {
                         break;
                     }
                 } else {
