@@ -60,8 +60,8 @@ pub fn main() !void {
         }
     }
 
-    const search_config = SearchConfig.aStarConfig(grid, start_x, start_y, end_x, end_y);
-    const paths = try util.aStarSearch(SearchConfig.Node, SearchConfig.Context, SearchConfig.Score, allocator, search_config);
+    const search_config = SearchConfig.findPathConfig(grid, start_x, start_y, end_x, end_y);
+    const paths = try util.findAllPaths(SearchConfig.Node, SearchConfig.Context, SearchConfig.Score, allocator, search_config);
     defer allocator.free(paths);
     defer {
         for (paths) |path| {
@@ -148,7 +148,7 @@ const SearchConfig = struct {
         }
     }
 
-    fn aStarConfig(grid: [][]u8, start_x: u16, start_y: u16, end_x: u16, end_y: u16) util.AStarConfig(Node, Context, Score) {
+    fn findPathConfig(grid: [][]u8, start_x: u16, start_y: u16, end_x: u16, end_y: u16) util.FindPathConfig(Node, Context, Score) {
         return .{
             .start = .{ .x = start_x, .y = start_y, .facing = .east },
             .max_neighbours = max_neighbours,

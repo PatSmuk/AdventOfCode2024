@@ -58,7 +58,7 @@ pub fn printMap(comptime K: type, comptime V: type, map: std.AutoHashMap(K, V)) 
     }
 }
 
-pub fn AStarConfig(
+pub fn FindPathConfig(
     comptime Node: type,
     comptime Context: type,
     comptime Score: type,
@@ -100,12 +100,12 @@ pub fn AStarConfig(
 /// Generic A* search algorithm implementation.
 /// Returns all paths to the end with the lowest possible score.
 /// Caller owns both the slice of paths and each path slice.
-pub fn aStarSearch(
+pub fn findAllPaths(
     comptime Node: type,
     comptime Context: type,
     comptime Score: type,
     allocator: std.mem.Allocator,
-    config: AStarConfig(Node, Context, Score),
+    config: FindPathConfig(Node, Context, Score),
 ) ![][]Node {
     const start = config.start;
 
@@ -249,7 +249,108 @@ pub fn aStarSearch(
         }
     }
 
-    return &[0][]Node{};
+    return &.{};
+}
+
+/// Generic A* search algorithm implementation.
+/// Returns a single path to the end with the lowest possible score.
+/// Caller owns the returned slice.
+pub fn findOnePath(
+    comptime Node: type,
+    comptime Context: type,
+    comptime Score: type,
+    allocator: std.mem.Allocator,
+    config: FindPathConfig(Node, Context, Score),
+) ![]Node {
+    const start = config.start;
+
+    // Buffer to hold results from get_neighbours
+    const neighbours = try allocator.alloc(?Node, config.max_neighbours);
+    defer allocator.free(neighbours);
+
+    // An optimal way to reach a node.
+    var came_from = std.AutoHashMap(Node, Node).init(allocator);
+    defer came_from.deinit();
+
+    // Tracks the lowest weight possible to reach each node.
+    var g_scores = std.AutoHashMap(Node, Score).init(allocator);
+    defer g_scores.deinit();
+    try g_scores.put(start, 0);
+
+    // Tracks the lowest weight and distance possible to reach each node.
+    // Used to determine which node to visit next of all possible nodes.
+    var f_scores = std.AutoHashMap(Node, Score).init(allocator);
+    defer f_scores.deinit();
+    try f_scores.put(start, config.get_distance(&config.context, start));
+
+    // The open set of all nodes we can visit, ordered by lowest f-score (distance + weight).
+    const compare_context = CompareNodesContext(Node, Score){ .f_scores = &f_scores };
+    var open_set = std.PriorityQueue(
+        Node,
+        CompareNodesContext(Node, Score),
+        compareNodesByFScore(Node, Score),
+    ).init(allocator, compare_context);
+    defer open_set.deinit();
+    try open_set.add(start);
+
+    // While there are still nodes we can visit...
+    while (open_set.count() > 0) {
+        var node = open_set.remove();
+
+        // If we have reached the end...
+        if (config.get_distance(&config.context, node) == 0) {
+            var path = std.ArrayList(Node).init(allocator);
+            errdefer path.deinit();
+            try path.append(node);
+
+            while (came_from.get(node)) |next_node| {
+                try path.append(next_node);
+                node = next_node;
+            }
+
+            std.mem.reverse(Node, path.items);
+            return path.toOwnedSlice();
+        }
+
+        const g_score = g_scores.get(node).?;
+
+        @memset(neighbours, null);
+        config.get_neighbours(&config.context, node, neighbours);
+
+        for (neighbours) |maybe_neighbour| {
+            if (maybe_neighbour == null) {
+                // No more neighbours for this node
+                break;
+            }
+
+            const neighbour = maybe_neighbour.?;
+            const tent_g_score = g_score + config.get_weight(&config.context, node, neighbour);
+            const maybe_neighbour_g_score = g_scores.get(neighbour);
+
+            // If this is strictly a better way to get to neighbour...
+            if (maybe_neighbour_g_score == null or tent_g_score < maybe_neighbour_g_score.?) {
+                // Set best path to neighbour to be from this node.
+                try came_from.put(neighbour, node);
+
+                // Update neighbours risk and score.
+                try g_scores.put(neighbour, tent_g_score);
+                const distance = config.get_distance(&config.context, neighbour);
+                try f_scores.put(neighbour, tent_g_score + distance);
+
+                // Add the neighbour to the open set if it isn't already
+                for (open_set.items) |open_set_node| {
+                    if (std.meta.eql(open_set_node, neighbour)) {
+                        break;
+                    }
+                } else {
+                    // Not in open set, so add it
+                    try open_set.add(neighbour);
+                }
+            }
+        }
+    }
+
+    return &.{};
 }
 
 fn CompareNodesContext(Node: type, Score: type) type {
