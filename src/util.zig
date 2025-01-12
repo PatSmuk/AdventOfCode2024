@@ -45,17 +45,18 @@ pub fn readInputFileLines(
 }
 
 /// Increment `key` within `map` by `n` if it exists, otherwise set it to `n`.
-pub fn mapInc(comptime K: type, comptime V: type, map: *std.AutoHashMap(K, V), key: K, n: V) !void {
+pub fn mapInc(map: anytype, key: anytype, n: anytype) !void {
     const existing = map.get(key) orelse 0;
     try map.put(key, existing + n);
 }
 
 /// Print all the entries in `map` out to stderr.
-pub fn printMap(comptime K: type, comptime V: type, map: std.AutoHashMap(K, V)) void {
+pub fn dumpMap(map: anytype) void {
     var iter = map.iterator();
     while (iter.next()) |entry| {
         std.debug.print("{any} -> {any}\n", .{ entry.key_ptr.*, entry.value_ptr.* });
     }
+    std.debug.print("\n", .{});
 }
 
 pub fn FindPathConfig(
@@ -100,7 +101,7 @@ pub fn FindPathConfig(
 /// Generic A* search algorithm implementation.
 /// Returns all paths to the end with the lowest possible score.
 /// Caller owns both the slice of paths and each path slice.
-pub fn findAllPaths(
+pub fn findAllOptimalPaths(
     comptime Node: type,
     comptime Context: type,
     comptime Score: type,
@@ -115,7 +116,7 @@ pub fn findAllPaths(
 
     // All the most optimal ways to reach a node.
     // (If there is more than one way then they must be equally optimal.)
-    var came_from = std.AutoHashMap(Node, std.ArrayList(Node)).init(allocator);
+    var came_from = AutoOrStringMap(Node, std.ArrayList(Node)).init(allocator);
     defer came_from.deinit();
     defer {
         var iter = came_from.valueIterator();
@@ -125,13 +126,13 @@ pub fn findAllPaths(
     }
 
     // Tracks the lowest weight possible to reach each node.
-    var g_scores = std.AutoHashMap(Node, Score).init(allocator);
+    var g_scores = AutoOrStringMap(Node, Score).init(allocator);
     defer g_scores.deinit();
     try g_scores.put(start, 0);
 
     // Tracks the lowest weight and distance possible to reach each node.
     // Used to determine which node to visit next of all possible nodes.
-    var f_scores = std.AutoHashMap(Node, Score).init(allocator);
+    var f_scores = AutoOrStringMap(Node, Score).init(allocator);
     defer f_scores.deinit();
     try f_scores.put(start, config.get_distance(&config.context, start));
 
@@ -269,17 +270,17 @@ pub fn findOnePath(
     defer allocator.free(neighbours);
 
     // An optimal way to reach a node.
-    var came_from = std.AutoHashMap(Node, Node).init(allocator);
+    var came_from = AutoOrStringMap(Node, Node).init(allocator);
     defer came_from.deinit();
 
     // Tracks the lowest weight possible to reach each node.
-    var g_scores = std.AutoHashMap(Node, Score).init(allocator);
+    var g_scores = AutoOrStringMap(Node, Score).init(allocator);
     defer g_scores.deinit();
     try g_scores.put(start, 0);
 
     // Tracks the lowest weight and distance possible to reach each node.
     // Used to determine which node to visit next of all possible nodes.
-    var f_scores = std.AutoHashMap(Node, Score).init(allocator);
+    var f_scores = AutoOrStringMap(Node, Score).init(allocator);
     defer f_scores.deinit();
     try f_scores.put(start, config.get_distance(&config.context, start));
 
@@ -353,9 +354,138 @@ pub fn findOnePath(
     return &.{};
 }
 
+/// Returns ALL possible paths to the end, including sub-optimal paths.
+/// Caller owns both the slice of paths and each path slice.
+pub fn findAllPaths(
+    comptime Node: type,
+    comptime Context: type,
+    comptime Score: type,
+    allocator: std.mem.Allocator,
+    config: FindPathConfig(Node, Context, Score),
+) ![][]Node {
+    const start = config.start;
+
+    // Buffer to hold results from get_neighbours
+    const neighbours = try allocator.alloc(?Node, config.max_neighbours);
+    defer allocator.free(neighbours);
+
+    // All the most optimal ways to reach a node.
+    // (If there is more than one way then they must be equally optimal.)
+    var came_from = AutoOrStringMap(Node, std.ArrayList(Node)).init(allocator);
+    defer came_from.deinit();
+    defer {
+        var iter = came_from.valueIterator();
+        while (iter.next()) |list| {
+            list.deinit();
+        }
+    }
+
+    var open_set = AutoOrStringMap(Node, void).init(allocator);
+    defer open_set.deinit();
+    try open_set.put(start, {});
+
+    // While there are still nodes we can visit...
+    while (open_set.count() > 0) {
+        const node = blk: {
+            var iter = open_set.keyIterator();
+            const node = iter.next().?.*;
+            _ = open_set.remove(node);
+            break :blk node;
+        };
+
+        // If we have reached the end...
+        if (config.get_distance(&config.context, node) == 0) {
+            // Keeps track of all possible paths from start to end.
+            var all_paths = std.ArrayList([]Node).init(allocator);
+            errdefer all_paths.deinit();
+            errdefer {
+                for (all_paths.items) |path| {
+                    allocator.free(path);
+                }
+            }
+
+            // Starting from the end...
+            var path = std.ArrayList(Node).init(allocator);
+            errdefer path.deinit();
+            try path.append(node);
+
+            // Keeps track of each partial path from start to end.
+            var frontier = std.ArrayList(std.ArrayList(Node)).init(allocator);
+            defer frontier.deinit();
+            try frontier.append(path);
+
+            // While there are still unfinished partial paths to complete...
+            while (frontier.items.len > 0) {
+                const partial_path = frontier.orderedRemove(0);
+                defer partial_path.deinit(); // not needed beyond this loop cycle
+
+                // Get the next nodes from the end of the partial path towards the starting point
+                const next_nodes = came_from.get(partial_path.getLast()).?;
+                for (next_nodes.items) |next_node| {
+                    // Create a new path by adding next node onto a copy of partial path
+                    var new_path = try partial_path.clone();
+                    errdefer new_path.deinit();
+                    try new_path.append(next_node);
+
+                    // If we reach the starting point...
+                    if (std.meta.eql(next_node, start)) {
+                        // Add complete path from start to end to all_paths
+                        const complete_path = try new_path.toOwnedSlice();
+                        errdefer allocator.free(complete_path);
+                        std.mem.reverse(Node, complete_path);
+                        try all_paths.append(complete_path);
+                    } else {
+                        // Continue going backwards toward start with the new partial path
+                        try frontier.append(new_path);
+                    }
+                }
+            }
+
+            return all_paths.toOwnedSlice();
+        }
+
+        @memset(neighbours, null);
+        config.get_neighbours(&config.context, node, neighbours);
+
+        for (neighbours) |maybe_neighbour| {
+            if (maybe_neighbour == null) {
+                // No more neighbours for this node
+                break;
+            }
+
+            const neighbour = maybe_neighbour.?;
+
+            // If this is strictly a better way to get to neighbour...
+            if (!came_from.contains(neighbour)) {
+                // Set best path to neighbour to be from this node.
+                var list = std.ArrayList(Node).init(allocator);
+                try list.append(node);
+                try came_from.put(neighbour, list);
+
+                // Add the neighbour to the open set if it isn't already
+                try open_set.put(neighbour, {});
+            } else {
+                // This path to neighbour is equally as good as the other path to neighbour
+                var list = came_from.getPtr(neighbour).?;
+                try list.append(node);
+            }
+        }
+    }
+
+    return &.{};
+}
+
+fn AutoOrStringMap(Node: type, V: type) type {
+    if (Node == []const u8) {
+        return std.StringHashMap(V);
+    } else {
+        return std.AutoHashMap(Node, V);
+    }
+}
+
 fn CompareNodesContext(Node: type, Score: type) type {
     return struct {
-        f_scores: *const std.AutoHashMap(Node, Score),
+        f_scores: *const AutoOrStringMap(Node, Score),
     };
 }
 

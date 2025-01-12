@@ -80,13 +80,13 @@ fn calculateCost(allocator: std.mem.Allocator, grid: [][]const u8, start_row: us
         // X--2-->X
 
         // 1
-        try util.mapInc(Edge, u2, &edge_counts, .{ .{ .row = row, .col = col }, .{ .row = row, .col = col + 1 } }, 1);
+        try util.mapInc(&edge_counts, [2]Location{ .{ .row = row, .col = col }, .{ .row = row, .col = col + 1 } }, 1);
         // 2
-        try util.mapInc(Edge, u2, &edge_counts, .{ .{ .row = row + 1, .col = col }, .{ .row = row + 1, .col = col + 1 } }, 1);
+        try util.mapInc(&edge_counts, [2]Location{ .{ .row = row + 1, .col = col }, .{ .row = row + 1, .col = col + 1 } }, 1);
         // 3
-        try util.mapInc(Edge, u2, &edge_counts, .{ .{ .row = row, .col = col }, .{ .row = row + 1, .col = col } }, 1);
+        try util.mapInc(&edge_counts, [2]Location{ .{ .row = row, .col = col }, .{ .row = row + 1, .col = col } }, 1);
         // 4
-        try util.mapInc(Edge, u2, &edge_counts, .{ .{ .row = row, .col = col + 1 }, .{ .row = row + 1, .col = col + 1 } }, 1);
+        try util.mapInc(&edge_counts, [2]Location{ .{ .row = row, .col = col + 1 }, .{ .row = row + 1, .col = col + 1 } }, 1);
 
         for (direction_vectors) |vec| {
             const maybe_new_row = @as(isize, @intCast(row)) + vec[1];

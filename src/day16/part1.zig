@@ -61,7 +61,7 @@ pub fn main() !void {
     }
 
     const search_config = SearchConfig.findPathConfig(grid, start_x, start_y, end_x, end_y);
-    const paths = try util.findAllPaths(SearchConfig.Node, SearchConfig.Context, SearchConfig.Score, allocator, search_config);
+    const paths = try util.findAllOptimalPaths(SearchConfig.Node, SearchConfig.Context, SearchConfig.Score, allocator, search_config);
     defer allocator.free(paths);
     defer {
         for (paths) |path| {

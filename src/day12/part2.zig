@@ -84,13 +84,13 @@ fn calculateCost(allocator: std.mem.Allocator, grid: [][]const u8, start_row: us
         // X--2-->X
 
         // 1
-        try util.mapInc(Edge, u2, &edge_counts, .{ .start = .{ .row = row, .col = col }, .end = .{ .row = row, .col = col + 1 }, .topOrLeft = true }, 1);
+        try util.mapInc(&edge_counts, Edge{ .start = .{ .row = row, .col = col }, .end = .{ .row = row, .col = col + 1 }, .topOrLeft = true }, 1);
         // 2
-        try util.mapInc(Edge, u2, &edge_counts, .{ .start = .{ .row = row + 1, .col = col }, .end = .{ .row = row + 1, .col = col + 1 }, .topOrLeft = false }, 1);
+        try util.mapInc(&edge_counts, Edge{ .start = .{ .row = row + 1, .col = col }, .end = .{ .row = row + 1, .col = col + 1 }, .topOrLeft = false }, 1);
         // 3
-        try util.mapInc(Edge, u2, &edge_counts, .{ .start = .{ .row = row, .col = col }, .end = .{ .row = row + 1, .col = col }, .topOrLeft = true }, 1);
+        try util.mapInc(&edge_counts, Edge{ .start = .{ .row = row, .col = col }, .end = .{ .row = row + 1, .col = col }, .topOrLeft = true }, 1);
         // 4
-        try util.mapInc(Edge, u2, &edge_counts, .{ .start = .{ .row = row, .col = col + 1 }, .end = .{ .row = row + 1, .col = col + 1 }, .topOrLeft = false }, 1);
+        try util.mapInc(&edge_counts, Edge{ .start = .{ .row = row, .col = col + 1 }, .end = .{ .row = row + 1, .col = col + 1 }, .topOrLeft = false }, 1);
 
         for (direction_vectors) |vec| {
             const maybe_new_row = @as(isize, @intCast(row)) + vec[1];

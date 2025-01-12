@@ -18,7 +18,7 @@ pub fn main() !void {
     defer stone_counts.deinit();
 
     for (lines[0]) |num| {
-        try util.mapInc(u64, u64, &stone_counts, num, 1);
+        try util.mapInc(&stone_counts, num, 1);
     }
 
     var value_buf = [_]u8{0} ** 21;
@@ -33,17 +33,17 @@ pub fn main() !void {
             const count = entry.value_ptr.*;
 
             if (value == 0) {
-                try util.mapInc(u64, u64, &new_stone_counts, 1, count);
+                try util.mapInc(&new_stone_counts, 1, count);
             } else {
                 const value_str = std.fmt.bufPrintIntToSlice(&value_buf, value, 10, .lower, .{});
 
                 if (value_str.len % 2 == 0) {
                     const left = try std.fmt.parseInt(Stone, value_str[0..(value_str.len / 2)], 10);
                     const right = try std.fmt.parseInt(Stone, value_str[(value_str.len / 2)..], 10);
-                    try util.mapInc(u64, u64, &new_stone_counts, left, count);
-                    try util.mapInc(u64, u64, &new_stone_counts, right, count);
+                    try util.mapInc(&new_stone_counts, left, count);
+                    try util.mapInc(&new_stone_counts, right, count);
                 } else {
-                    try util.mapInc(u64, u64, &new_stone_counts, value * 2024, count);
+                    try util.mapInc(&new_stone_counts, value * 2024, count);
                 }
             }
         }
